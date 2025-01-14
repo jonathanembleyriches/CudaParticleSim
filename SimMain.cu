@@ -1,6 +1,7 @@
-
+// clang-format off
 #include <GL/glew.h>
 #include <GL/freeglut.h>
+// clang-format on
 #include <cmath>
 #include <cuda_gl_interop.h>
 #include <cuda_runtime.h>
@@ -51,16 +52,16 @@ int* d_particleCounts = nullptr;
 // -----------------------------------------------------------------------------
 // 1. CUDA kernel to update positions
 // -----------------------------------------------------------------------------
-__global__ void updatePositionsKernel(float2* pos,int* customFlags, int n, float t)
+__global__ void updatePositionsKernel(float2* pos, int* customFlags, int n, float t)
 {
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
 	if(i >= n)
 		return;
 
-    // if(customFlags[i] == 1)
-    //     return;
-    if(customFlags[i] == 1)
-        return;
+	// if(customFlags[i] == 1)
+	//     return;
+	if(customFlags[i] == 1)
+		return;
 	pos[i].y -= 9.81f * t;
 
 	// Clamp at ground
@@ -86,9 +87,10 @@ __global__ void calculateCellOccupancy(
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
 	if(i >= n)
 		return;
-    if (pos[i].y <= 0){
-        return;
-    }
+	if(pos[i].y <= 0)
+	{
+		return;
+	}
 	// Calculate grid cell column and row
 	int col = pos[i].x / CELL_SIZE;
 	int row = pos[i].y / CELL_SIZE;
@@ -114,30 +116,34 @@ __global__ void calculateCellOccupancy(
 	}
 }
 
-__global__ void calculateCollisions(
-	int n, float2* pos, int* currentCells, int* particlesInCell, int* particleCounts, int* customFlags)
+__global__ void calculateCollisions(int n,
+									float2* pos,
+									int* currentCells,
+									int* particlesInCell,
+									int* particleCounts,
+									int* customFlags)
 {
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
 	if(i >= n)
 		return;
 
-    int cellId = i;
+	int cellId = i;
 	// we can now assume this particular thread is dealing with each cell
 
 	// Atomically increment particle count for the cell and get the index
 	for(int p1 = 0; p1 < particleCounts[cellId]; p1++)
 	{
 
-            int p1_id = particlesInCell[cellId * MAX_PARTICLES_PER_CELL + p1];
-        if(p1_id == 0)
-            continue;
+		int p1_id = particlesInCell[cellId * MAX_PARTICLES_PER_CELL + p1];
+		if(p1_id == 0)
+			continue;
 		for(int p2 = 0; p2 < particleCounts[cellId]; p2++)
 		{
 
-				int p2_id = particlesInCell[cellId * MAX_PARTICLES_PER_CELL + p2];
+			int p2_id = particlesInCell[cellId * MAX_PARTICLES_PER_CELL + p2];
 
-                if(p2_id == 0)
-                    continue;
+			if(p2_id == 0)
+				continue;
 			if(p1_id != p2_id)
 			{
 				float xDiff = abs(pos[p1_id].x - pos[p2_id].x);
@@ -145,15 +151,13 @@ __global__ void calculateCollisions(
 
 				float distanceSquared = xDiff * xDiff + yDiff * yDiff;
 				float collisionDistanceSquared = 4.0f * 0.1 * 0.1; // (2r)^2
-  // printf("Cell %d: Particle %d (%.3f, %.3f) vs Particle %d (%.3f, %.3f) - DistSq: %.6f\n",
-  //                   cellId, p1_id, pos[p1_id].x, pos[p1_id].y, p2_id, pos[p2_id].x, pos[p2_id].y, distanceSquared);
+				// printf("Cell %d: Particle %d (%.3f, %.3f) vs Particle %d (%.3f, %.3f) - DistSq: %.6f\n",
+				//                   cellId, p1_id, pos[p1_id].x, pos[p1_id].y, p2_id, pos[p2_id].x, pos[p2_id].y, distanceSquared);
 
 				if(distanceSquared < collisionDistanceSquared)
 				{
-                            customFlags[p1_id] = 1;
-                            customFlags[p2_id] = 1;
-					// Particles have collided
-					// Add your collision handling code here
+					customFlags[p1_id] = 1;
+					customFlags[p2_id] = 1;
 				}
 			}
 		}
@@ -165,31 +169,32 @@ void HandleCollisions()
 	// first we need to take every particle and put them into
 	// to handle this we are going to need more data structures
 
-            {
-	dim3 block(256);
-	dim3 grid((NUM_PARTICLES + block.x - 1) / block.x);
+	{
+		dim3 block(256);
+		dim3 grid((NUM_PARTICLES + block.x - 1) / block.x);
 
-	// int* d_currentCell = nullptr;
-	// int* d_particlesInCell = nullptr;
-	// int* d_particleCounts = nullptr;
-	calculateCellOccupancy<<<grid, block>>>(
-		NUM_PARTICLES, d_positions, d_currentCell, d_particlesInCell, d_particleCounts);
-	cudaDeviceSynchronize();
-    }
+		// int* d_currentCell = nullptr;
+		// int* d_particlesInCell = nullptr;
+		// int* d_particleCounts = nullptr;
+		calculateCellOccupancy<<<grid, block>>>(
+			NUM_PARTICLES, d_positions, d_currentCell, d_particlesInCell, d_particleCounts);
+		cudaDeviceSynchronize();
+	}
 
-        {
-	dim3 block(256);
-	dim3 grid((NUM_CELLS * NUM_CELLS + block.x - 1) / block.x);
+	{
+		dim3 block(256);
+		dim3 grid((NUM_CELLS * NUM_CELLS + block.x - 1) / block.x);
 
-	// Launch the kernel
-	calculateCollisions<<<grid, block>>>(NUM_CELLS * NUM_CELLS, // Total number of cells
-										 d_positions,
-										 d_currentCell,
-										 d_particlesInCell,
-										 d_particleCounts, d_customFlags);
+		// Launch the kernel
+		calculateCollisions<<<grid, block>>>(NUM_CELLS * NUM_CELLS, // Total number of cells
+											 d_positions,
+											 d_currentCell,
+											 d_particlesInCell,
+											 d_particleCounts,
+											 d_customFlags);
 
-	cudaDeviceSynchronize();
-}
+		cudaDeviceSynchronize();
+	}
 }
 
 // -----------------------------------------------------------------------------
@@ -309,7 +314,7 @@ static void idleCallback()
 	{
 		dim3 block(256);
 		dim3 grid((NUM_PARTICLES + block.x - 1) / block.x);
-		updatePositionsKernel<<<grid, block>>>(d_positions,  d_customFlags,NUM_PARTICLES, g_time);
+		updatePositionsKernel<<<grid, block>>>(d_positions, d_customFlags, NUM_PARTICLES, g_time);
 		cudaDeviceSynchronize();
 	}
 
@@ -432,7 +437,6 @@ int main(int argc, char** argv)
 		std::vector<float2> h_positions(NUM_PARTICLES);
 		std::vector<int> h_customFlags(NUM_PARTICLES);
 
-
 		// Simple random range: x in [0..100], y in [50..100]
 		srand((unsigned)time(nullptr));
 		for(int i = 0; i < NUM_PARTICLES; i++)
@@ -442,11 +446,10 @@ int main(int argc, char** argv)
 			float x = rand() % (NUM_CELLS * CELL_SIZE); // Random x position in the grid
 			float y = rand() % (NUM_CELLS * CELL_SIZE); // Random y position in the grid
 			h_positions[i] = {x, y};
-            int custom = 0;
-            if (i > 500 && i < 1000)
-                custom = 1;
-            h_customFlags[i] = custom;
-            
+			int custom = 0;
+			if(i > 500 && i < 1000)
+				custom = 1;
+			h_customFlags[i] = custom;
 		}
 
 		// Copy to GPU

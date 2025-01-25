@@ -19,7 +19,8 @@
 #Cmake for my sim
 cmake_minimum_required(VERSION 3.10)
 project(MyCudaAdventure CUDA)
-
+set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -G -g")
+# set(CMAKE_CUDA_FLAGS_RELEASE "${CMAKE_CUDA_FLAGS_RELEASE} -O3")
 file(GLOB CUDA_SOURCES src/*.cu)
 
 add_executable(MyCudaProgram SimMain.cu ${CUDA_SOURCES})
@@ -39,3 +40,4 @@ target_link_libraries(MyCudaProgram PRIVATE GLEW::GLEW)
 find_package(GLUT REQUIRED)
 target_link_libraries(MyCudaProgram PRIVATE GLUT::GLUT)
 # target_link_libraries(MyCudaProgram PRIVATE GLUT::GLUT)
+
